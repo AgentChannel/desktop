@@ -16,21 +16,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: macos-latest
-            arch: aarch64
-          - runner: macos-13
-            arch: x86_64
-    runs-on: ${{ matrix.runner }}
+          - target: aarch64-apple-darwin
+          - target: x86_64-apple-darwin
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - run: cargo install tauri-cli
-      - run: cd src-tauri && cargo tauri build
+      - run: cd src-tauri && cargo tauri build --target ${{ matrix.target }}
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
 
   build-windows:
     runs-on: windows-latest
