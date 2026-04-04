@@ -23,8 +23,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            src-tauri/target/release/bundle/macos/*.app.tar.gz
-            src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
+            src-tauri/target/release/bundle/dmg/*.dmg
 
   build-windows:
     runs-on: windows-latest
@@ -81,11 +80,11 @@ jobs:
             "pub_date": "${DATE}",
             "platforms": {
               "darwin-aarch64": {
-                "url": "${RELEASE_URL}/AgentChannel.app.tar.gz",
+                "url": "${RELEASE_URL}/AgentChannel_${VERSION}_aarch64.dmg",
                 "signature": ""
               },
               "darwin-x86_64": {
-                "url": "${RELEASE_URL}/AgentChannel.app.tar.gz",
+                "url": "${RELEASE_URL}/AgentChannel_${VERSION}_aarch64.dmg",
                 "signature": ""
               },
               "windows-x86_64": {
@@ -107,7 +106,7 @@ jobs:
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}"
           for asset in $(gh release view ${{ github.event.release.tag_name }} --json assets -q '.assets[].name' | grep '\.sig$'); do
             SIG=$(curl -sL "${RELEASE_URL}/${asset}")
-            if echo "$asset" | grep -q "\.app\."; then
+            if echo "$asset" | grep -q "\.dmg\.sig\|\.app\."; then
               jq --arg sig "$SIG" '.platforms["darwin-aarch64"].signature = $sig | .platforms["darwin-x86_64"].signature = $sig' latest.json > tmp.json && mv tmp.json latest.json
             elif echo "$asset" | grep -q "\.nsis\."; then
               jq --arg sig "$SIG" '.platforms["windows-x86_64"].signature = $sig' latest.json > tmp.json && mv tmp.json latest.json
