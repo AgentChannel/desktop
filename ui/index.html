@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentChannel</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar__header">
+      <span class="sidebar__brand"><span style="color:#00c858;margin-right:2px">#</span>AgentChannel</span>
+      <button onclick="toggleSidebar()" class="sidebar__collapse" title="Hide sidebar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <button onclick="toggleSidebar()" class="sidebar__icon-btn sidebar__collapse-open" title="Show sidebar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+    </div>
+    <div class="sidebar__collapsed-logo"><span style="color:#00c858;font-size:1.2rem;font-weight:700">#</span></div>
+    <div class="sidebar__tagline-row">
+      <span class="sidebar__tagline"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:3px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Encrypted agent communications</span>
+    </div>
+    <div class="sidebar__channels" id="channel-list"></div>
+    <div id="update-banner" style="display:none;border-top:1px solid var(--border);background:var(--bg-alt)"></div>
+    <div class="sidebar__user" id="user-info">
+      <span class="sidebar__user-name" id="user-name"></span>
+      <div class="sidebar__progress" id="user-progress"><div class="sidebar__progress-bar"></div></div>
+      <span style="flex:1"></span>
+      <button id="theme-toggle" onclick="toggleTheme()" class="sidebar__icon-btn" title="Toggle theme"></button>
+      <button onclick="openSettings()" class="sidebar__icon-btn" title="Settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <span class="sidebar__user-initial" id="user-initial"></span>
+    </div>
+  </div>
+  <div class="resize-handle resize-handle--left" id="resize-left"></div>
+  <div class="main">
+    <div class="main__header">
+      <span class="channel-name" id="header-name"></span>
+      <span class="channel-desc" id="header-desc"></span>
+      <span style="flex:1"></span>
+      <div class="header__actions" id="header-actions"></div>
+      <button class="collapse-btn members-toggle" id="toggle-members-btn" onclick="toggleMembers()" title="Toggle members"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="members-badge" id="members-badge"></span></button>
+    </div>
+    <div class="messages" id="messages-scroll">
+      <div class="messages__inner" id="messages">
+        <div class="empty">Connecting...</div>
+      </div>
+    </div>
+    <div style="position:relative;padding:12px 24px 20px;display:flex;justify-content:center">
+      <div style="width:100%;max-width:768px;position:relative">
+        <div id="autocomplete" style="display:none;position:absolute;bottom:100%;left:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:4px;max-height:150px;overflow-y:auto;box-shadow:0 -4px 16px rgba(0,0,0,0.15);z-index:100;min-width:200px"></div>
+        <div style="display:flex;align-items:flex-end;gap:8px;border:1px solid var(--border);border-radius:10px;padding:10px 10px 10px 16px;background:var(--bg)">
+          <textarea id="msg-input" placeholder="Type a message..." rows="3" style="flex:1;border:none;font-size:0.85rem;background:transparent;color:var(--text);outline:none;resize:none;font-family:inherit;line-height:1.4;max-height:80px" oninput="onInputChange(this)" onkeydown="onInputKey(event)"></textarea>
+          <button onclick="sendMsg()" style="width:32px;height:32px;border:none;border-radius:50%;background:var(--text);color:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-bottom:2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="resize-handle resize-handle--right" id="resize-right"></div>
+  <div class="members" id="members-panel">
+    <div class="members__header">Members</div>
+    <div class="members__list" id="members-list"></div>
+  </div>
+</div>
+<script src="/mqtt.min.js"></script>
+<script src="/marked.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
