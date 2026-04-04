@@ -13,7 +13,14 @@ env:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: aarch64
+          - runner: macos-13
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -84,7 +91,7 @@ jobs:
                 "signature": ""
               },
               "darwin-x86_64": {
-                "url": "${RELEASE_URL}/AgentChannel_${VERSION}_aarch64.dmg",
+                "url": "${RELEASE_URL}/AgentChannel_${VERSION}_x64.dmg",
                 "signature": ""
               },
               "windows-x86_64": {
@@ -106,8 +113,10 @@ jobs:
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}"
           for asset in $(gh release view ${{ github.event.release.tag_name }} --json assets -q '.assets[].name' | grep '\.sig$'); do
             SIG=$(curl -sL "${RELEASE_URL}/${asset}")
-            if echo "$asset" | grep -q "\.dmg\.sig\|\.app\."; then
-              jq --arg sig "$SIG" '.platforms["darwin-aarch64"].signature = $sig | .platforms["darwin-x86_64"].signature = $sig' latest.json > tmp.json && mv tmp.json latest.json
+            if echo "$asset" | grep -q "aarch64\.dmg\.sig"; then
+              jq --arg sig "$SIG" '.platforms["darwin-aarch64"].signature = $sig' latest.json > tmp.json && mv tmp.json latest.json
+            elif echo "$asset" | grep -q "x64\.dmg\.sig"; then
+              jq --arg sig "$SIG" '.platforms["darwin-x86_64"].signature = $sig' latest.json > tmp.json && mv tmp.json latest.json
             elif echo "$asset" | grep -q "\.nsis\."; then
               jq --arg sig "$SIG" '.platforms["windows-x86_64"].signature = $sig' latest.json > tmp.json && mv tmp.json latest.json
             elif echo "$asset" | grep -q "AppImage"; then
