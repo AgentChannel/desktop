@@ -601,9 +601,6 @@ async function init() {
     try { CONFIG.version = await API.invoke('get_version'); } catch(e) {}
   }
 
-  var vEl = document.getElementById('user-version');
-  if (vEl && CONFIG.version) vEl.textContent = 'v' + CONFIG.version;
-
   renderSidebar();
 
   window.acChannels = window.acChannels || {};
