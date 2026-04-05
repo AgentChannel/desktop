@@ -29,12 +29,15 @@ jobs:
       - name: Rename arch-specific tarball
         run: |
           cd src-tauri/target/${{ matrix.target }}/release/bundle/macos
+          ls -la
+          shopt -s nullglob
           for f in *.app.tar.gz; do
-            mv "$f" "${f%.app.tar.gz}_${{ matrix.target }}.app.tar.gz"
+            [[ "$f" == *"${{ matrix.target }}"* ]] || mv "$f" "${f%.app.tar.gz}_${{ matrix.target }}.app.tar.gz"
           done
           for f in *.app.tar.gz.sig; do
-            mv "$f" "${f%.app.tar.gz.sig}_${{ matrix.target }}.app.tar.gz.sig"
+            [[ "$f" == *"${{ matrix.target }}"* ]] || mv "$f" "${f%.app.tar.gz.sig}_${{ matrix.target }}.app.tar.gz.sig"
           done
+          ls -la
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
