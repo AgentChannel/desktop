@@ -743,11 +743,11 @@ async function init() {
     if (canAutoInstall) {
       banner.innerHTML = '<div style="text-align:center;padding:16px 24px">' +
         '<div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:4px">v' + version + ' available</div>' +
-        '<button id="update-install-btn" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-size:0.85rem">Install & Restart</button>' +
+        '<button id="update-install-btn" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-size:0.85rem">Relaunch</button>' +
         '</div>';
       banner.style.display = "block";
       document.getElementById("update-install-btn").onclick = function() {
-        this.textContent = "Installing...";
+        this.textContent = "Updating...";
         this.disabled = true;
         API.invoke("install_update").catch(function(e) {
           banner.innerHTML = '<div style="text-align:center;padding:12px;font-size:0.8rem;color:var(--text-muted)">Update failed: ' + e + '</div>';
