@@ -2,14 +2,14 @@
 /// Decoupled from Tauri — uses callback for message delivery.
 
 use crate::crypto;
-use rumqttc::{MqttOptions, AsyncClient, QoS, Event, Packet};
+use rumqttc::{MqttOptions, AsyncClient, QoS, Event, Packet, Transport, TlsConfiguration};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use std::fs;
 
 const DEFAULT_BROKER: &str = "broker.emqx.io";
-const DEFAULT_PORT: u16 = 1883;
+const DEFAULT_PORT: u16 = 8883;
 
 /// Callback invoked when a new message arrives
 pub type MessageCallback = Arc<dyn Fn(Message) + Send + Sync>;
@@ -109,6 +109,13 @@ impl MqttManager {
         let mut opts = MqttOptions::new(&client_id, DEFAULT_BROKER, DEFAULT_PORT);
         opts.set_keep_alive(std::time::Duration::from_secs(60));
         opts.set_clean_session(true);
+        // Load default root certs for rustls
+        let mut root_cert_store = rustls::RootCertStore::empty();
+        root_cert_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        let tls_config = rustls::ClientConfig::builder()
+            .with_root_certificates(root_cert_store)
+            .with_no_client_auth();
+        opts.set_transport(Transport::Tls(TlsConfiguration::Rustls(Arc::new(tls_config))));
 
         let (client, mut eventloop) = AsyncClient::new(opts, 100);
         self.client = Some(client.clone());
