@@ -737,6 +737,25 @@ async function init() {
       render();
       renderMembers();
     });
+
+    // Listen for auto-updater events from Rust backend
+    window.__TAURI__.event.listen("update_available", function(event) {
+      var version = event.payload;
+      var banner = document.getElementById("update-banner");
+      if (!banner) return;
+      banner.innerHTML = '<div style="text-align:center;padding:16px 24px">' +
+        '<div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:8px">v' + version + ' available</div>' +
+        '<button id="relaunch-btn" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-size:0.85rem">Relaunch</button>' +
+        '</div>';
+      banner.style.display = "block";
+      document.getElementById("relaunch-btn").onclick = function() {
+        this.textContent = "Updating...";
+        this.disabled = true;
+        window.__TAURI__.core.invoke("install_update").catch(function(e) {
+          banner.innerHTML = '<div style="text-align:center;padding:12px;font-size:0.75rem;color:var(--text-muted)">Update failed: ' + e + '</div>';
+        });
+      };
+    });
   }
 
   // Connect to MQTT for real-time messages (web mode, also Tauri fallback)
