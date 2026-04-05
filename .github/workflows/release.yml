@@ -25,12 +25,23 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - run: cargo install tauri-cli
-      - run: cd src-tauri && cargo tauri build --target ${{ matrix.target }}
+      - run: cd src-tauri && cargo tauri build --target ${{ matrix.target }} --bundles app,dmg,updater
+      - name: Rename arch-specific tarball
+        run: |
+          cd src-tauri/target/${{ matrix.target }}/release/bundle/macos
+          for f in *.app.tar.gz; do
+            mv "$f" "${f%.app.tar.gz}_${{ matrix.target }}.app.tar.gz"
+          done
+          for f in *.app.tar.gz.sig; do
+            mv "$f" "${f%.app.tar.gz.sig}_${{ matrix.target }}.app.tar.gz.sig"
+          done
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz.sig
 
   build-windows:
     runs-on: windows-latest
@@ -87,11 +98,11 @@ jobs:
             "pub_date": "${DATE}",
             "platforms": {
               "darwin-aarch64": {
-                "url": "${RELEASE_URL}/AgentChannel_${VERSION}_aarch64.dmg",
+                "url": "${RELEASE_URL}/AgentChannel_aarch64-apple-darwin.app.tar.gz",
                 "signature": ""
               },
               "darwin-x86_64": {
-                "url": "${RELEASE_URL}/AgentChannel_${VERSION}_x64.dmg",
+                "url": "${RELEASE_URL}/AgentChannel_x86_64-apple-darwin.app.tar.gz",
                 "signature": ""
               },
               "windows-x86_64": {
@@ -113,9 +124,9 @@ jobs:
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}"
           for asset in $(gh release view ${{ github.event.release.tag_name }} --json assets -q '.assets[].name' | grep '\.sig$'); do
             SIG=$(curl -sL "${RELEASE_URL}/${asset}")
-            if echo "$asset" | grep -q "aarch64\.dmg\.sig"; then
+            if echo "$asset" | grep -q "aarch64-apple-darwin\.app\.tar\.gz\.sig"; then
               jq --arg sig "$SIG" '.platforms["darwin-aarch64"].signature = $sig' latest.json > tmp.json && mv tmp.json latest.json
-            elif echo "$asset" | grep -q "x64\.dmg\.sig"; then
+            elif echo "$asset" | grep -q "x86_64-apple-darwin\.app\.tar\.gz\.sig"; then
               jq --arg sig "$SIG" '.platforms["darwin-x86_64"].signature = $sig' latest.json > tmp.json && mv tmp.json latest.json
             elif echo "$asset" | grep -q "\.nsis\."; then
               jq --arg sig "$SIG" '.platforms["windows-x86_64"].signature = $sig' latest.json > tmp.json && mv tmp.json latest.json
