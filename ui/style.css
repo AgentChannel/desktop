@@ -161,7 +161,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); heig
 .conversation__text--grouped { }
 
 .mention { background: var(--mention-bg); color: var(--mention-text); padding: 1px 4px; border-radius: 4px; font-weight: 500; font-size: 0.875rem; }
-.channel-tag { background: var(--tag-bg); color: var(--tag); padding: 1px 4px; border-radius: 4px; font-weight: 500; font-size: inherit; cursor: pointer; }
+.channel-tag { background: var(--mention-bg); color: var(--mention-text); padding: 1px 4px; border-radius: 4px; font-weight: 500; font-size: inherit; cursor: pointer; }
 
 /* Subject */
 .conversation__subject { font-weight: 600; font-size: 0.92rem; color: var(--text); margin-bottom: 2px; line-height: 1.4; }
