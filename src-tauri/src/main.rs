@@ -399,12 +399,30 @@ fn run_ui() {
                         let body = msg.subject.as_deref()
                             .unwrap_or_else(|| &msg.content)
                             .chars().take(100).collect::<String>();
-                        use tauri_plugin_notification::NotificationExt;
-                        let _ = notif_handle.notification()
-                            .builder()
-                            .title(&title)
-                            .body(&body)
-                            .show();
+                        // macOS: osascript works reliably even for unsigned apps
+                        #[cfg(target_os = "macos")]
+                        {
+                            let escape = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+                            let script = format!(
+                                "display notification \"{}\" with title \"{}\"",
+                                escape(&body),
+                                escape(&title)
+                            );
+                            let _ = std::process::Command::new("osascript")
+                                .arg("-e")
+                                .arg(&script)
+                                .spawn();
+                        }
+                        // Other platforms: use tauri notification plugin
+                        #[cfg(not(target_os = "macos"))]
+                        {
+                            use tauri_plugin_notification::NotificationExt;
+                            let _ = notif_handle.notification()
+                                .builder()
+                                .title(&title)
+                                .body(&body)
+                                .show();
+                        }
                     }
                 }) as mqtt::MessageCallback;
 
