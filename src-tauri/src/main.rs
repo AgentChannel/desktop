@@ -137,36 +137,39 @@ fn notifications_file() -> PathBuf {
 
 pub async fn load_history(mqtt: &MqttManager, channels: &[ChannelConfig]) {
     let client = reqwest::Client::new();
-    for ch in channels {
-        let key = if let Some(sub) = &ch.subchannel {
-            crypto::derive_sub_key(&ch.key, sub)
-        } else {
-            crypto::derive_key(&ch.key)
-        };
-        let hash = if let Some(sub) = &ch.subchannel {
-            crypto::hash_sub(&ch.key, sub)
-        } else {
-            crypto::hash_room(&ch.key)
-        };
 
-        let url = format!(
-            "https://api.agentchannel.workers.dev/messages?channel_hash={}&since=0&limit=100",
-            hash
-        );
+    // Fetch all channel histories in parallel
+    let fetches: Vec<_> = channels.iter().map(|ch| {
+        let client = client.clone();
+        let ch = ch.clone();
+        async move {
+            let key = if let Some(sub) = &ch.subchannel {
+                crypto::derive_sub_key(&ch.key, sub)
+            } else {
+                crypto::derive_key(&ch.key)
+            };
+            let hash = if let Some(sub) = &ch.subchannel {
+                crypto::hash_sub(&ch.key, sub)
+            } else {
+                crypto::hash_room(&ch.key)
+            };
+            let url = format!(
+                "https://api.agentchannel.workers.dev/messages?channel_hash={}&since=0&limit=100",
+                hash
+            );
 
-        if let Ok(resp) = client.get(&url).send().await {
-            if let Ok(rows) = resp.json::<Vec<serde_json::Value>>().await {
-                for row in rows {
-                    if let Some(ct) = row.get("ciphertext").and_then(|v| v.as_str()) {
-                        if let Ok(enc) = serde_json::from_str::<crypto::EncryptedPayload>(ct) {
-                            if let Ok(dec) = crypto::decrypt(&enc, &key) {
-                                if let Ok(mut msg) = serde_json::from_str::<Message>(&dec) {
-                                    msg.channel = ch.channel.clone();
-                                    msg.subchannel = ch.subchannel.clone();
-                                    if msg.msg_type.as_deref() != Some("channel_meta") {
-                                        let mut msgs = mqtt.messages.lock().await;
-                                        if !msgs.iter().any(|m| m.id == msg.id) {
-                                            msgs.push(msg);
+            let mut decoded: Vec<Message> = Vec::new();
+            if let Ok(resp) = client.get(&url).send().await {
+                if let Ok(rows) = resp.json::<Vec<serde_json::Value>>().await {
+                    for row in rows {
+                        if let Some(ct) = row.get("ciphertext").and_then(|v| v.as_str()) {
+                            if let Ok(enc) = serde_json::from_str::<crypto::EncryptedPayload>(ct) {
+                                if let Ok(dec) = crypto::decrypt(&enc, &key) {
+                                    if let Ok(mut msg) = serde_json::from_str::<Message>(&dec) {
+                                        msg.channel = ch.channel.clone();
+                                        msg.subchannel = ch.subchannel.clone();
+                                        if msg.msg_type.as_deref() != Some("channel_meta") {
+                                            decoded.push(msg);
                                         }
                                     }
                                 }
@@ -175,9 +178,20 @@ pub async fn load_history(mqtt: &MqttManager, channels: &[ChannelConfig]) {
                     }
                 }
             }
+            decoded
+        }
+    }).collect();
+
+    let results = futures::future::join_all(fetches).await;
+
+    let mut msgs = mqtt.messages.lock().await;
+    for batch in results {
+        for msg in batch {
+            if !msgs.iter().any(|m| m.id == msg.id) {
+                msgs.push(msg);
+            }
         }
     }
-    let mut msgs = mqtt.messages.lock().await;
     msgs.sort_by_key(|m| m.timestamp);
 }
 
@@ -359,14 +373,13 @@ fn run_ui() {
             let app_handle = app.handle().clone();
             let config_clone = config.clone();
 
-            // MQTT + history in background
+            // MQTT connect first, then load history in parallel (non-blocking)
             tauri::async_runtime::spawn(async move {
                 let state: tauri::State<AppState> = app_handle.state();
                 let mut mqtt = state.mqtt.lock().await;
                 for ch in &config_clone.channels {
                     mqtt.add_channel(&ch.channel, ch.subchannel.as_deref(), &ch.key).await;
                 }
-                load_history(&mqtt, &config_clone.channels).await;
 
                 // UI mode: callback emits to Tauri frontend + native notification
                 let handle = app_handle.clone();
@@ -376,7 +389,6 @@ fn run_ui() {
                     use tauri::Emitter;
                     let _ = handle.emit("new_message", &msg);
 
-                    // Send native macOS notification for messages from others
                     if msg.sender != cfg_name {
                         let label = if let Some(ref sub) = msg.subchannel {
                             format!("#{} ##{}", msg.channel, sub)
@@ -395,8 +407,27 @@ fn run_ui() {
                             .show();
                     }
                 }) as mqtt::MessageCallback;
+
+                // Connect MQTT — fast path, live messages start flowing
                 mqtt.connect(Some(callback)).await;
                 eprintln!("MQTT connected, {} channels", config_clone.channels.len());
+                drop(mqtt);
+
+                // Load history in parallel, emit each message as it's loaded
+                let history_handle = app_handle.clone();
+                let channels_for_history = config_clone.channels.clone();
+                tauri::async_runtime::spawn(async move {
+                    let state: tauri::State<AppState> = history_handle.state();
+                    let mqtt = state.mqtt.lock().await;
+                    load_history(&*mqtt, &channels_for_history).await;
+                    // Emit all history messages to frontend
+                    let msgs = mqtt.messages.lock().await.clone();
+                    use tauri::Emitter;
+                    for msg in msgs {
+                        let _ = history_handle.emit("new_message", &msg);
+                    }
+                    eprintln!("History loaded");
+                });
             });
 
             // Auto-check for updates after 3 seconds
