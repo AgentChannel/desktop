@@ -598,6 +598,7 @@ async function init() {
     if (ident) {
       CONFIG.fingerprint = ident.fingerprint;
     }
+    try { CONFIG.version = await API.invoke('get_version'); } catch(e) {}
   }
 
   renderSidebar();
@@ -728,45 +729,13 @@ async function init() {
         var total = Object.values(unreadCounts).reduce(function(a, b) { return a + b; }, 0);
         if (total > 0) document.title = "(" + total + ") AgentChannel";
         var nlabel = msg.subchannel ? "#" + msg.channel + " ##" + msg.subchannel : "#" + msg.channel;
-        // Skip web Notification in Tauri — Rust sends native notifications
-
+        if (Notification.permission === "granted" && (document.hidden || activeChannel !== chKeyName)) {
+          var n = new Notification(nlabel + " @" + msg.sender, {body: msg.subject || msg.content.slice(0, 100)});
+          n.onclick = function() { window.focus(); };
+        }
       }
       render();
       renderMembers();
-    });
-  }
-
-  // Shared update banner — used by both web (npm) and Tauri (auto-updater)
-  window.showUpdateBanner = function(version, canAutoInstall) {
-    var banner = document.getElementById("update-banner");
-    if (!banner) return;
-    if (canAutoInstall) {
-      banner.innerHTML = '<div style="text-align:center;padding:16px 24px">' +
-        '<div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:4px">v' + version + ' available</div>' +
-        '<button id="update-install-btn" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-size:0.85rem">Relaunch</button>' +
-        '</div>';
-      banner.style.display = "block";
-      document.getElementById("update-install-btn").onclick = function() {
-        this.textContent = "Updating...";
-        this.disabled = true;
-        API.invoke("install_update").catch(function(e) {
-          banner.innerHTML = '<div style="text-align:center;padding:12px;font-size:0.8rem;color:var(--text-muted)">Update failed: ' + e + '</div>';
-        });
-      };
-    } else {
-      banner.innerHTML = '<div style="text-align:center;padding:16px 24px">' +
-        '<div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:4px">v' + version + ' available</div>' +
-        '<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:12px">Run to update</div>' +
-        '<button onclick="navigator.clipboard.writeText(\'npm install -g agentchannel\');this.textContent=\'Copied!\'" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-size:0.85rem">npm install -g agentchannel</button>' +
-        '</div>';
-      banner.style.display = "block";
-    }
-  };
-
-  // Tauri: listen for auto-updater event from Rust backend
-  if (isTauri) {
-    window.__TAURI__.event.listen("update_available", function(event) {
-      window.showUpdateBanner(event.payload, true);
     });
   }
 
@@ -781,13 +750,21 @@ async function init() {
       client.subscribe("ac/1/" + ch.hash);
       client.subscribe("ac/1/" + ch.hash + "/p");
     }
-    // Check for updates — npm registry (web mode) or Tauri updater event (desktop mode)
+    // Check for updates — show banner (skip in Tauri mode, it has its own updater)
     if (!isTauri) {
       fetch("https://registry.npmjs.org/agentchannel/latest").then(function(r) {
         return r.json();
       }).then(function(d) {
         if (d.version && d.version !== CONFIG.version) {
-          window.showUpdateBanner(d.version, false);
+          var banner = document.getElementById("update-banner");
+          if (banner) {
+            banner.innerHTML = '<div style="text-align:center;padding:16px 24px">' +
+              '<div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:4px">Updated to ' + d.version + '</div>' +
+              '<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:12px">Relaunch to apply</div>' +
+              '<button onclick="navigator.clipboard.writeText(\'npm install -g agentchannel\');this.textContent=\'Copied! Run in terminal.\'" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-size:0.85rem">Relaunch</button>' +
+              '</div>';
+            banner.style.display = "block";
+          }
         }
       }).catch(function() {});
     }

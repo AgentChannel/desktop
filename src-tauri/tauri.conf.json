@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/main/schemas/tauri.config.schema.json",
   "productName": "AgentChannel",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "identifier": "io.agentchannel.desktop",
   "build": {
     "frontendDist": "../ui"
