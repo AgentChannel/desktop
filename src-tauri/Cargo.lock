@@ -45,19 +45,21 @@ dependencies = [
 
 [[package]]
 name = "agentchannel-desktop"
-version = "0.1.0"
+version = "0.1.6"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
  "chrono",
  "dirs",
  "ed25519-dalek",
+ "futures",
  "hex",
  "hkdf",
  "rand 0.8.5",
  "reqwest 0.12.28",
  "rmcp",
  "rumqttc",
+ "rustls 0.22.4",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -67,6 +69,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-updater",
  "tokio",
+ "webpki-roots 0.26.11",
  "whoami",
 ]
 
@@ -5662,6 +5665,24 @@ name = "webpki-root-certs"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "804f18a4ac2676ffb4e8b5b5fa9ae38af06df08162314f96a68d2a363e21a8ca"
+dependencies = [
+ "rustls-pki-types",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "0.26.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "521bc38abb08001b01866da9f51eb7c5d647a19260e00054a8c7fd5f9e57f7a9"
+dependencies = [
+ "webpki-roots 1.0.6",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22cfaf3c063993ff62e73cb4311efde4db1efb31ab78a3e5c457939ad5cc0bed"
 dependencies = [
  "rustls-pki-types",
 ]

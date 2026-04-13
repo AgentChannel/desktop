@@ -218,6 +218,77 @@ fn main() {
     run_ui();
 }
 
+/// Register agentchannel MCP server in Claude Desktop config so Claude Code
+/// discovers it automatically. Runs once on first launch; updates the binary
+/// path on subsequent launches if the app was moved.
+fn register_mcp_in_claude_config() {
+    let Some(home) = dirs::home_dir() else { return };
+
+    // Determine the binary path based on platform
+    let binary_path = {
+        #[cfg(target_os = "macos")]
+        {
+            // On macOS, the binary is inside the .app bundle
+            // Use current_exe to find where we're actually running from
+            std::env::current_exe()
+                .ok()
+                .map(|p| p.to_string_lossy().to_string())
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            std::env::current_exe()
+                .ok()
+                .map(|p| p.to_string_lossy().to_string())
+        }
+    };
+    let Some(binary_path) = binary_path else { return };
+
+    // Claude Desktop config path
+    #[cfg(target_os = "macos")]
+    let config_path = home.join("Library/Application Support/Claude/claude_desktop_config.json");
+    #[cfg(target_os = "linux")]
+    let config_path = home.join(".config/Claude/claude_desktop_config.json");
+    #[cfg(target_os = "windows")]
+    let config_path = home.join("AppData/Roaming/Claude/claude_desktop_config.json");
+
+    // Read existing config or start fresh
+    let mut config: serde_json::Value = if let Ok(data) = fs::read_to_string(&config_path) {
+        serde_json::from_str(&data).unwrap_or_else(|_| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    let servers = config
+        .as_object_mut()
+        .and_then(|o| {
+            o.entry("mcpServers")
+                .or_insert_with(|| serde_json::json!({}))
+                .as_object_mut()
+        });
+    let Some(servers) = servers else { return };
+
+    // Check if already registered with the same path
+    if let Some(existing) = servers.get("agentchannel") {
+        if existing.get("command").and_then(|v| v.as_str()) == Some(&binary_path) {
+            return; // Already registered with correct path
+        }
+    }
+
+    // Register (or update path if app was moved)
+    servers.insert("agentchannel".to_string(), serde_json::json!({
+        "command": binary_path,
+        "args": ["--mcp"]
+    }));
+
+    if let Some(parent) = config_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Ok(json) = serde_json::to_string_pretty(&config) {
+        let _ = fs::write(&config_path, json);
+        eprintln!("Registered MCP server in Claude Desktop config");
+    }
+}
+
 fn run_ui() {
     use tauri::Manager;
     use tauri_plugin_updater::UpdaterExt;
@@ -369,6 +440,9 @@ fn run_ui() {
         .setup(move |app| {
             let version = env!("CARGO_PKG_VERSION");
             eprintln!("AgentChannel Desktop v{}", version);
+
+            // Auto-register MCP server in Claude Desktop config (once)
+            register_mcp_in_claude_config();
 
             let app_handle = app.handle().clone();
             let config_clone = config.clone();
